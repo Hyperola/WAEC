@@ -15,7 +15,7 @@ const ManageTests = () => {
       setError('Invalid test ID. Please select a valid test.');
       return;
     }
-    navigate(`/test-creation/${testId}`);
+    navigate(`/teacher/test-creation/${testId}`);
   };
 
   const handleAddQuestions = (testId) => {
@@ -24,7 +24,7 @@ const ManageTests = () => {
       setError('Invalid test ID. Please select a valid test.');
       return;
     }
-    navigate(`/test-creation/${testId}/questions`);
+    navigate(`/teacher/test-creation/${testId}/add-questions`);
   };
 
   const handleDeleteTest = async (id) => {
@@ -61,32 +61,24 @@ const ManageTests = () => {
     const isActive = new Date(endDate) > new Date();
     return {
       text: isActive ? 'Active' : 'Completed',
-      color: isActive ? '#38A169' : '#718096',
-      bgColor: isActive ? '#E6FFFA' : '#EDF2F7'
+      color: isActive ? '#28a745' : '#718096',
+      bgColor: isActive ? '#d4edda' : '#EDF2F7',
     };
   };
 
   return (
     <div style={styles.container}>
-      {/* Header */}
       <div style={styles.header}>
-        <div style={styles.headerContent}>
-          <FiBook style={styles.headerIcon} />
-          <div>
-            <h1 style={styles.headerTitle}>Manage Tests</h1>
-            <p style={styles.headerSubtitle}>View and manage all your created tests</p>
-          </div>
-        </div>
+        <h2 style={styles.headerTitle}>Manage Tests</h2>
+        <p style={styles.headerSubtitle}>View and manage all your created tests</p>
       </div>
 
-      {/* Alerts */}
       {error && (
         <div style={styles.alertError}>
           <FiAlertTriangle style={styles.alertIcon} />
           <span>{error}</span>
         </div>
       )}
-      
       {success && (
         <div style={styles.alertSuccess}>
           <FiCheckCircle style={styles.alertIcon} />
@@ -94,17 +86,13 @@ const ManageTests = () => {
         </div>
       )}
 
-      {/* Main Content */}
-      <div style={styles.content}>
+      <div style={styles.section}>
         {tests.length === 0 ? (
           <div style={styles.emptyState}>
             <FiBook style={styles.emptyIcon} />
             <h3 style={styles.emptyTitle}>No Tests Found</h3>
             <p style={styles.emptyText}>Create your first test to get started</p>
-            <button 
-              onClick={() => navigate('/test-creation')}
-              style={styles.createButton}
-            >
+            <button onClick={() => navigate('/teacher/test-creation')} style={styles.createButton}>
               <FiPlusCircle style={styles.buttonIcon} />
               Create New Test
             </button>
@@ -113,13 +101,13 @@ const ManageTests = () => {
           <div style={styles.tableContainer}>
             <table style={styles.table}>
               <thead>
-                <tr style={styles.tableHeader}>
-                  <th style={styles.tableHeaderCell}>Test Title</th>
-                  <th style={styles.tableHeaderCell}>Subject</th>
-                  <th style={styles.tableHeaderCell}>Class</th>
-                  <th style={styles.tableHeaderCell}>Status</th>
-                  <th style={styles.tableHeaderCell}>Dates</th>
-                  <th style={styles.tableHeaderCell}>Actions</th>
+                <tr>
+                  <th style={styles.tableHeader}>Test Title</th>
+                  <th style={styles.tableHeader}>Subject</th>
+                  <th style={styles.tableHeader}>Class</th>
+                  <th style={styles.tableHeader}>Status</th>
+                  <th style={styles.tableHeader}>Dates</th>
+                  <th style={styles.tableHeader}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -127,7 +115,6 @@ const ManageTests = () => {
                   const status = getStatusBadge(test.availability?.end);
                   const startDate = new Date(test.availability?.start).toLocaleDateString();
                   const endDate = new Date(test.availability?.end).toLocaleDateString();
-                  
                   return (
                     <tr key={test._id} style={styles.tableRow}>
                       <td style={styles.tableCell}>
@@ -135,21 +122,13 @@ const ManageTests = () => {
                         <div style={styles.testSession}>{test.session}</div>
                       </td>
                       <td style={styles.tableCell}>
-                        <span style={styles.subjectBadge}>
-                          {test.subject}
-                        </span>
+                        <span style={styles.subjectBadge}>{test.subject}</span>
                       </td>
                       <td style={styles.tableCell}>
-                        <span style={styles.classBadge}>
-                          {test.class}
-                        </span>
+                        <span style={styles.classBadge}>{test.class}</span>
                       </td>
                       <td style={styles.tableCell}>
-                        <span style={{
-                          ...styles.statusBadge,
-                          backgroundColor: status.bgColor,
-                          color: status.color
-                        }}>
+                        <span style={{ ...styles.statusBadge, backgroundColor: status.bgColor, color: status.color }}>
                           {status.text}
                         </span>
                       </td>
@@ -157,33 +136,24 @@ const ManageTests = () => {
                         <div style={styles.dateRange}>
                           <div style={styles.dateLabel}>Start:</div>
                           <div>{startDate}</div>
-                          <div style={{...styles.dateLabel, marginTop: '4px'}}>End:</div>
+                          <div style={{ ...styles.dateLabel, marginTop: '4px' }}>End:</div>
                           <div>{endDate}</div>
                         </div>
                       </td>
                       <td style={styles.tableCell}>
                         <div style={styles.actionButtons}>
-                          <button
-                            onClick={() => handleEditTest(test._id)}
-                            style={styles.editButton}
-                          >
+                          <button onClick={() => handleEditTest(test._id)} style={styles.editButton}>
                             <FiEdit2 style={styles.buttonIcon} />
                             Edit
                           </button>
-                          <button
-                            onClick={() => handleAddQuestions(test._id)}
-                            style={styles.questionsButton}
-                          >
+                          <button onClick={() => handleAddQuestions(test._id)} style={styles.questionsButton}>
                             <FiPlusCircle style={styles.buttonIcon} />
                             Questions
                           </button>
                           <button
                             onClick={() => handleDeleteTest(test._id)}
                             disabled={loading && deletingId === test._id}
-                            style={{
-                              ...styles.deleteButton,
-                              opacity: loading && deletingId === test._id ? 0.7 : 1
-                            }}
+                            style={{ ...styles.deleteButton, opacity: loading && deletingId === test._id ? 0.7 : 1 }}
                           >
                             <FiTrash2 style={styles.buttonIcon} />
                             {loading && deletingId === test._id ? 'Deleting...' : 'Delete'}
@@ -202,80 +172,68 @@ const ManageTests = () => {
   );
 };
 
-// Styles
 const styles = {
   container: {
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: 'sans-serif',
     backgroundColor: '#f8f9fa',
-    minHeight: '100vh',
+    maxWidth: '1200px',
+    margin: '0 auto',
+    padding: '20px',
   },
   header: {
     backgroundColor: '#4B5320',
     color: '#FFFFFF',
-    padding: '2rem',
-    borderBottom: '1px solid #000000',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-  },
-  headerContent: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-  },
-  headerIcon: {
-    fontSize: '2.5rem',
-    color: '#D4A017',
+    padding: '25px',
+    borderRadius: '8px',
+    marginBottom: '25px',
+    border: '1px solid #000000',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.2)',
   },
   headerTitle: {
-    fontSize: '1.8rem',
-    margin: '0',
-    fontWeight: '600',
+    fontSize: '24px',
+    fontWeight: 'bold',
+    margin: '0 0 10px 0',
   },
   headerSubtitle: {
-    fontSize: '1rem',
-    margin: '0.5rem 0 0',
+    fontSize: '16px',
+    margin: '0',
     color: '#D4A017',
   },
   alertError: {
     backgroundColor: '#FFF3F3',
     color: '#B22222',
     borderLeft: '4px solid #B22222',
-    padding: '1rem',
-    margin: '0 auto 1.5rem',
+    padding: '15px',
+    marginBottom: '25px',
     borderRadius: '4px',
     display: 'flex',
     alignItems: 'center',
-    gap: '0.75rem',
-    maxWidth: '1200px',
+    gap: '10px',
   },
   alertSuccess: {
     backgroundColor: '#d4edda',
     color: '#155724',
     borderLeft: '4px solid #28a745',
-    padding: '1rem',
-    margin: '0 auto 1.5rem',
+    padding: '15px',
+    marginBottom: '25px',
     borderRadius: '4px',
     display: 'flex',
     alignItems: 'center',
-    gap: '0.75rem',
-    maxWidth: '1200px',
+    gap: '10px',
   },
   alertIcon: {
-    fontSize: '1.2rem',
+    fontSize: '20px',
   },
-  content: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    padding: '1.5rem',
-  },
-  emptyState: {
+  section: {
     backgroundColor: '#FFFFFF',
     borderRadius: '8px',
-    padding: '3rem',
-    textAlign: 'center',
+    padding: '25px',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
     border: '1px solid #E0E0E0',
+  },
+  emptyState: {
+    textAlign: 'center',
+    padding: '3rem',
   },
   emptyIcon: {
     fontSize: '3rem',
@@ -296,21 +254,15 @@ const styles = {
     backgroundColor: '#4B5320',
     color: '#FFFFFF',
     border: 'none',
-    padding: '0.75rem 1.5rem',
+    padding: '12px 24px',
     borderRadius: '6px',
     cursor: 'pointer',
     fontWeight: '600',
-    display: 'inline-flex',
+    display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    transition: 'all 0.2s',
+    gap: '8px',
   },
   tableContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: '8px',
-    padding: '1.5rem',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    border: '1px solid #E0E0E0',
     overflowX: 'auto',
   },
   table: {
@@ -320,109 +272,101 @@ const styles = {
   tableHeader: {
     backgroundColor: '#4B5320',
     color: '#FFFFFF',
-  },
-  tableHeaderCell: {
-    padding: '1rem',
+    padding: '12px',
     textAlign: 'left',
     fontWeight: '600',
   },
   tableRow: {
     borderBottom: '1px solid #E0E0E0',
-    ':hover': {
-      backgroundColor: '#F8F9FA',
-    },
   },
   tableCell: {
-    padding: '1rem',
+    padding: '12px',
     verticalAlign: 'top',
   },
   testTitle: {
     fontWeight: '600',
     color: '#4B5320',
-    marginBottom: '0.25rem',
+    marginBottom: '4px',
   },
   testSession: {
-    fontSize: '0.875rem',
+    fontSize: '14px',
     color: '#718096',
   },
   subjectBadge: {
     backgroundColor: '#E6FFFA',
     color: '#234E52',
-    padding: '0.25rem 0.5rem',
+    padding: '4px 8px',
     borderRadius: '4px',
-    fontSize: '0.875rem',
+    fontSize: '14px',
     fontWeight: '500',
-    display: 'inline-block',
   },
   classBadge: {
     backgroundColor: '#EBF8FF',
     color: '#2C5282',
-    padding: '0.25rem 0.5rem',
+    padding: '4px 8px',
     borderRadius: '4px',
-    fontSize: '0.875rem',
+    fontSize: '14px',
     fontWeight: '500',
-    display: 'inline-block',
   },
   statusBadge: {
-    padding: '0.25rem 0.5rem',
+    padding: '4px 8px',
     borderRadius: '4px',
-    fontSize: '0.875rem',
+    fontSize: '14px',
     fontWeight: '500',
     display: 'inline-block',
   },
   dateRange: {
-    fontSize: '0.875rem',
+    fontSize: '14px',
   },
   dateLabel: {
     color: '#718096',
-    fontSize: '0.75rem',
+    fontSize: '12px',
   },
   actionButtons: {
     display: 'flex',
-    gap: '0.5rem',
-  },
-  buttonIcon: {
-    fontSize: '1rem',
-    marginRight: '0.25rem',
+    gap: '8px',
   },
   editButton: {
     backgroundColor: '#D4A017',
     color: '#4B5320',
     border: 'none',
-    padding: '0.5rem 0.75rem',
+    padding: '8px 12px',
     borderRadius: '4px',
     cursor: 'pointer',
     fontWeight: '600',
-    fontSize: '0.875rem',
+    fontSize: '14px',
     display: 'flex',
     alignItems: 'center',
-    transition: 'all 0.2s',
+    gap: '6px',
   },
   questionsButton: {
     backgroundColor: '#4B5320',
     color: '#FFFFFF',
     border: 'none',
-    padding: '0.5rem 0.75rem',
+    padding: '8px 12px',
     borderRadius: '4px',
     cursor: 'pointer',
     fontWeight: '600',
-    fontSize: '0.875rem',
+    fontSize: '14px',
     display: 'flex',
     alignItems: 'center',
-    transition: 'all 0.2s',
+    gap: '6px',
   },
   deleteButton: {
-    backgroundColor: '#E53E3E',
+    backgroundColor: '#B22222',
     color: '#FFFFFF',
     border: 'none',
-    padding: '0.5rem 0.75rem',
+    padding: '8px 12px',
     borderRadius: '4px',
     cursor: 'pointer',
     fontWeight: '600',
-    fontSize: '0.875rem',
+    fontSize: '14px',
     display: 'flex',
     alignItems: 'center',
-    transition: 'all 0.2s',
+    gap: '6px',
+  },
+  buttonIcon: {
+    fontSize: '16px',
   },
 };
 

@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 
 const TestTaking = () => {
   const { user } = useContext(AuthContext);
   const { testId } = useParams();
-  const navigate = useNavigate();
   const [test, setTest] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -15,13 +14,14 @@ const TestTaking = () => {
   const [timeLeft, setTimeLeft] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [submission, setSubmission] = useState(null);
 
   useEffect(() => {
     const fetchTest = async () => {
       const token = localStorage.getItem('token');
       if (!token) {
         setError('Please login again.');
-        navigate('/login');
+        setLoading(false);
         return;
       }
       try {
@@ -30,7 +30,7 @@ const TestTaking = () => {
         });
         console.log('TestTaking - Fetched test:', res.data);
         setTest(res.data);
-        setQuestions(res.data.questions || []);
+        setQuestions(Array.isArray(res.data.questions) ? res.data.questions : []);
         setTimeLeft(res.data.duration * 60); // Convert minutes to seconds
         setLoading(false);
       } catch (err) {
@@ -43,10 +43,10 @@ const TestTaking = () => {
     if (user && user.role === 'student') {
       fetchTest();
     }
-  }, [user, testId, navigate]);
+  }, [user, testId]);
 
   useEffect(() => {
-    if (timeLeft === null || timeLeft <= 0) return;
+    if (timeLeft === null || timeLeft <= 0 || submission) return;
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -57,7 +57,7 @@ const TestTaking = () => {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [timeLeft]);
+  }, [timeLeft, submission]);
 
   const handleAnswer = (questionId, option) => {
     setAnswers(prev => ({ ...prev, [questionId]: option }));
@@ -88,50 +88,188 @@ const TestTaking = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       console.log('TestTaking - Submission success:', res.data);
-      navigate('/results');
+      setSubmission(res.data); // Store submission result
     } catch (err) {
       console.error('TestTaking - Submission error:', err.response?.data || err.message);
       setError(err.response?.data?.error || 'Failed to submit test.');
     }
   };
 
-  if (!user || user.role !== 'student') {
-    return <p style={{ padding: '20px', color: '#FF6B6B', fontFamily: 'Poppins, sans-serif' }}>Access restricted to students.</p>;
-  }
-
-  if (loading) {
-    return <div style={{ padding: '20px', fontFamily: 'Poppins, sans-serif', color: '#4B7043' }}>Loading test...</div>;
-  }
-
-  if (error) {
-    return <p style={{ padding: '20px', color: '#FF6B6B', fontFamily: 'Poppins, sans-serif' }}>{error}</p>;
-  }
-
-  if (!test || questions.length === 0) {
-    return <p style={{ padding: '20px', color: '#333333', fontFamily: 'Poppins, sans-serif' }}>No questions available for this test.</p>;
-  }
-
-  const currentQuestion = questions[currentQuestionIndex];
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
+  if (!user || user.role !== 'student') {
+    return (
+      <div style={{
+        padding: '20px',
+        color: '#B22222',
+        fontFamily: 'sans-serif',
+        backgroundColor: '#FFF3F3',
+        minHeight: '100vh',
+        textAlign: 'center'
+      }}>
+        Access restricted to students.
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div style={{
+        padding: '20px',
+        fontFamily: 'sans-serif',
+        color: '#4B5320',
+        backgroundColor: '#F8F9FA',
+        minHeight: '100vh',
+        textAlign: 'center'
+      }}>
+        Loading test...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        padding: '20px',
+        color: '#B22222',
+        fontFamily: 'sans-serif',
+        backgroundColor: '#FFF3F3',
+        minHeight: '100vh',
+        textAlign: 'center'
+      }}>
+        Error: {error}
+      </div>
+    );
+  }
+
+  if (!test || questions.length === 0) {
+    return (
+      <div style={{
+        padding: '20px',
+        color: '#4B5320',
+        fontFamily: 'sans-serif',
+        backgroundColor: '#F8F9FA',
+        minHeight: '100vh',
+        textAlign: 'center'
+      }}>
+        No questions available for this test.
+      </div>
+    );
+  }
+
+  if (submission) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#F8F9FA',
+        padding: '20px',
+        fontFamily: 'sans-serif',
+      }}>
+        <header style={{
+          backgroundColor: '#4B5320',
+          padding: '10px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderRadius: '8px',
+          marginBottom: '20px',
+        }}>
+          <img src="/images/Sanni.png" alt="Sanniville Academy Logo" style={{ width: '80px' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ color: '#FFFFFF', fontSize: '16px' }}>{user.name}</span>
+            <img
+              src={user.profileImage || '/images/default1.png'}
+              alt="Profile"
+              style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid #E0E0E0' }}
+            />
+          </div>
+        </header>
+        <div style={{
+          maxWidth: '800px',
+          margin: '0 auto',
+          backgroundColor: '#FFFFFF',
+          padding: '20px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+        }}>
+          <h2 style={{ color: '#4B5320', fontSize: '20px', marginBottom: '20px' }}>
+            Test Results: {test.title} ({test.subject} - {test.class})
+          </h2>
+          <p style={{ color: '#4B5320', fontSize: '16px', marginBottom: '20px' }}>
+            Score: {submission.score} / {submission.totalQuestions} (
+            {Math.round((submission.score / submission.totalQuestions) * 100)}%)
+          </p>
+          {submission.answers.map((result, index) => {
+            const question = questions.find(q => q._id === result.questionId);
+            return (
+              <div key={index} style={{
+                marginBottom: '20px',
+                padding: '15px',
+                border: `1px solid ${result.isCorrect ? '#4B5320' : '#B22222'}`,
+                borderRadius: '4px',
+                backgroundColor: result.isCorrect ? '#F8F9FA' : '#FFF3F3'
+              }}>
+                <h3 style={{ color: '#4B5320', fontSize: '16px', marginBottom: '10px' }}>
+                  Question {index + 1}: {question?.text}
+                </h3>
+                <p style={{ color: '#4B5320', fontSize: '14px' }}>
+                  Your Answer: {result.selectedAnswer || 'Not answered'}
+                </p>
+                <p style={{ color: result.isCorrect ? '#4B5320' : '#B22222', fontSize: '14px' }}>
+                  Correct Answer: {question?.correctAnswer}
+                </p>
+                <p style={{ color: result.isCorrect ? '#4B5320' : '#B22222', fontSize: '14px' }}>
+                  {result.isCorrect ? 'Correct' : 'Incorrect'}
+                </p>
+              </div>
+            );
+          })}
+          <button
+            onClick={() => window.location.href = '/student/tests'}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#D4A017',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              marginTop: '20px'
+            }}
+          >
+            Back to Tests
+          </button>
+        </div>
+        <footer style={{
+          textAlign: 'center',
+          color: '#E0E0E0',
+          backgroundColor: '#4B5320',
+          padding: '10px',
+          marginTop: '20px',
+          borderRadius: '4px',
+          fontSize: '12px',
+        }}>
+          Powered by <a href="https://devsannisystems.com" style={{ color: '#D4A017', textDecoration: 'none' }} onMouseOver={e => e.target.style.color = '#F5F5F5'} onMouseOut={e => e.target.style.color = '#D4A017'}>Devsanni Systems</a>
+        </footer>
+      </div>
+    );
+  }
+
+  const currentQuestion = questions[currentQuestionIndex];
+
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#A8B5A2',
-      backgroundImage: `url('/images/Sanni.png')`,
-      backgroundRepeat: 'no-repeat',
-      backgroundPosition: 'center',
-      backgroundSize: 'contain',
-      backgroundOpacity: 0.1,
+      backgroundColor: '#F8F9FA',
       padding: '20px',
-      fontFamily: 'Poppins, sans-serif',
+      fontFamily: 'sans-serif',
     }}>
       <header style={{
-        backgroundColor: '#4B7043',
+        backgroundColor: '#4B5320',
         padding: '10px 20px',
         display: 'flex',
         justifyContent: 'space-between',
@@ -141,49 +279,49 @@ const TestTaking = () => {
       }}>
         <img src="/images/Sanni.png" alt="Sanniville Academy Logo" style={{ width: '80px' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ color: 'white', fontSize: '16px' }}>{user.name}</span>
+          <span style={{ color: '#FFFFFF', fontSize: '16px' }}>{user.name}</span>
           <img
             src={user.profileImage || '/images/default1.png'}
             alt="Profile"
-            style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid #A8B5A2' }}
+            style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid #E0E0E0' }}
           />
         </div>
       </header>
       <div style={{
         maxWidth: '800px',
         margin: '0 auto',
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        backgroundColor: '#FFFFFF',
         padding: '20px',
         borderRadius: '8px',
         boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <h2 style={{ color: '#4B7043', fontSize: '20px' }}>
+          <h2 style={{ color: '#4B5320', fontSize: '20px' }}>
             {test.title} ({test.subject} - {test.class})
           </h2>
-          <div style={{ color: '#4B7043', fontSize: '16px', fontWeight: 'bold' }}>
+          <div style={{ color: '#4B5320', fontSize: '16px', fontWeight: 'bold' }}>
             Time Left: {formatTime(timeLeft)}
           </div>
         </div>
         <div style={{
           height: '10px',
-          backgroundColor: '#F4F4F4',
+          backgroundColor: '#E0E0E0',
           borderRadius: '5px',
           marginBottom: '20px',
         }}>
           <div style={{
             width: `${((currentQuestionIndex + 1) / questions.length) * 100}%`,
             height: '100%',
-            backgroundColor: '#4B7043',
+            backgroundColor: '#D4A017',
             borderRadius: '5px',
             transition: 'width 0.3s',
           }} />
         </div>
-        <p style={{ color: '#333333', fontSize: '16px', marginBottom: '10px' }}>
-          You’ve got this, {user.name}! Question {currentQuestionIndex + 1} of {questions.length}
+        <p style={{ color: '#4B5320', fontSize: '16px', marginBottom: '10px' }}>
+          Question {currentQuestionIndex + 1} of {questions.length}
         </p>
         <div style={{ marginBottom: '20px' }}>
-          <h3 style={{ color: '#333333', fontSize: '18px', marginBottom: '10px' }}>
+          <h3 style={{ color: '#4B5320', fontSize: '18px', marginBottom: '10px' }}>
             {currentQuestion.text}
           </h3>
           {currentQuestion.image && (
@@ -195,13 +333,13 @@ const TestTaking = () => {
           )}
           {currentQuestion.options.map((option, index) => (
             <div key={index} style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#333333' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#4B5320' }}>
                 <input
                   type="radio"
                   name={`question-${currentQuestion._id}`}
                   checked={answers[currentQuestion._id] === option}
                   onChange={() => handleAnswer(currentQuestion._id, option)}
-                  style={{ accentColor: '#4B7043' }}
+                  style={{ accentColor: '#D4A017' }}
                 />
                 {option}
               </label>
@@ -211,8 +349,8 @@ const TestTaking = () => {
             onClick={() => handleFlag(currentQuestion._id)}
             style={{
               padding: '8px 16px',
-              backgroundColor: flagged[currentQuestion._id] ? '#FF6B6B' : '#4B7043',
-              color: 'white',
+              backgroundColor: flagged[currentQuestion._id] ? '#B22222' : '#D4A017',
+              color: '#FFFFFF',
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
@@ -228,8 +366,8 @@ const TestTaking = () => {
             disabled={currentQuestionIndex === 0}
             style={{
               padding: '10px 20px',
-              backgroundColor: currentQuestionIndex === 0 ? '#A8B5A2' : '#4B7043',
-              color: 'white',
+              backgroundColor: currentQuestionIndex === 0 ? '#E0E0E0' : '#D4A017',
+              color: '#FFFFFF',
               border: 'none',
               borderRadius: '4px',
               cursor: currentQuestionIndex === 0 ? 'not-allowed' : 'pointer',
@@ -241,8 +379,8 @@ const TestTaking = () => {
             onClick={currentQuestionIndex === questions.length - 1 ? handleSubmit : handleNext}
             style={{
               padding: '10px 20px',
-              backgroundColor: '#4B7043',
-              color: 'white',
+              backgroundColor: '#D4A017',
+              color: '#FFFFFF',
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
@@ -254,14 +392,14 @@ const TestTaking = () => {
       </div>
       <footer style={{
         textAlign: 'center',
-        color: '#A8B5A2',
-        backgroundColor: '#333333',
+        color: '#E0E0E0',
+        backgroundColor: '#4B5320',
         padding: '10px',
         marginTop: '20px',
         borderRadius: '4px',
         fontSize: '12px',
       }}>
-        Powered by <a href="https://devsannisystems.com" style={{ color: '#A8B5A2', textDecoration: 'none' }} onMouseOver={e => e.target.style.color = '#4B7043'} onMouseOut={e => e.target.style.color = '#A8B5A2'}>Devsanni Systems</a>
+        Powered by <a href="https://devsannisystems.com" style={{ color: '#D4A017', textDecoration: 'none' }} onMouseOver={e => e.target.style.color = '#F5F5F5'} onMouseOut={e => e.target.style.color = '#D4A017'}>Devsanni Systems</a>
       </footer>
     </div>
   );

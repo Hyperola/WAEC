@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
       if (!token) return false;
       const decoded = jwtDecode(token);
       const currentTime = Date.now() / 1000;
-      if (decoded.exp < currentTime + 300) { // Refresh if expiring in 5 minutes
+      if (decoded.exp < currentTime + 300) {
         console.log('AuthContext - Refreshing token');
         const res = await axios.post('http://localhost:5000/api/auth/refresh', {}, {
           headers: { Authorization: `Bearer ${token}` },

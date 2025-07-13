@@ -31,7 +31,7 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   if (requiredRole) {
     if (Array.isArray(requiredRole)) {
       if (!requiredRole.includes(user.role)) {
-        console.log(`ProtectedRoute - Role mismatch (user: ${user.role}, required: ${requiredRole.join(',')}), redirecting to /unauthorized`);
+        console.log(`ProtectedRoute - Role mismatch (user: ${user.role}, required: ${requiredRole.join(', ')}), redirecting to /unauthorized`);
         return <Navigate to="/unauthorized" replace />;
       }
     } else if (user.role !== requiredRole) {
