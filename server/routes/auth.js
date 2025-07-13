@@ -141,6 +141,37 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.post('/refresh', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('username name surname role class subjects enrolledSubjects blocked');
+    if (!user) {
+      console.error('POST /api/auth/refresh - User not found:', req.user.userId);
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (user.blocked) {
+      console.error('POST /api/auth/refresh - Account blocked:', req.user.username);
+      return res.status(403).json({ error: 'Account blocked' });
+    }
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        username: user.username,
+        role: user.role,
+        class: user.class,
+        subjects: user.subjects,
+        enrolledSubjects: user.enrolledSubjects,
+      },
+      process.env.JWT_SECRET || 'your_jwt_secret',
+      { expiresIn: '1h' }
+    );
+    console.log('POST /api/auth/refresh - Success:', { username: user.username, userId: user._id });
+    res.json({ token });
+  } catch (error) {
+    console.error('POST /api/auth/refresh - Error:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.get('/users', auth, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {

@@ -9,10 +9,16 @@ import TestPreview from './pages/TestPreview';
 import Welcome from './pages/Welcome';
 import AdminHome from './pages/AdminHome';
 import Register from './pages/Register';
-import Results from './pages/Results';
-import AnalyticsPage from './pages/AnalyticsPage';
+import Results from './components/teacher/Results';
+import Analytics from './components/teacher/Analytics';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import AdminLayout from './components/AdminLayout';
+import ManageClasses from './pages/ManageClasses';
+import ManageUsers from './pages/ManageUsers';
+import EditResults from './pages/EditResults';
+import ExamSchedules from './pages/ExamSchedules';
+import DataExports from './pages/DataExports';
 
 class ErrorBoundary extends React.Component {
   state = { hasError: false };
@@ -34,10 +40,11 @@ const App = () => {
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Login />} />
             <Route
               path="/welcome"
               element={
-                <ProtectedRoute role="student">
+                <ProtectedRoute requiredRole="student">
                   <Welcome />
                 </ProtectedRoute>
               }
@@ -45,15 +52,15 @@ const App = () => {
             <Route
               path="/student"
               element={
-                <ProtectedRoute role="student">
+                <ProtectedRoute requiredRole="student">
                   <StudentHome />
                 </ProtectedRoute>
               }
             />
             <Route
-              path="/teacher"
+              path="/teacher/*"
               element={
-                <ProtectedRoute role="teacher">
+                <ProtectedRoute requiredRole="teacher">
                   <TeacherHome />
                 </ProtectedRoute>
               }
@@ -61,15 +68,107 @@ const App = () => {
             <Route
               path="/admin"
               element={
-                <ProtectedRoute role="admin">
-                  <AdminHome />
+                <ProtectedRoute requiredRole="admin">
+                  <AdminLayout>
+                    <AdminHome />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/classes"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminLayout>
+                    <ManageClasses />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/subjects"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminLayout>
+                    <ManageClasses />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminLayout>
+                    <ManageUsers />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/tests"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminLayout>
+                    <EditResults />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/results"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminLayout>
+                    <EditResults />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/session"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminLayout>
+                    <DataExports />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/exams"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminLayout>
+                    <ExamSchedules />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/exports"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminLayout>
+                    <DataExports />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/analytics"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminLayout>
+                    <Analytics />
+                  </AdminLayout>
                 </ProtectedRoute>
               }
             />
             <Route
               path="/users"
               element={
-                <ProtectedRoute role="admin">
+                <ProtectedRoute requiredRole="admin">
                   <Register />
                 </ProtectedRoute>
               }
@@ -77,7 +176,7 @@ const App = () => {
             <Route
               path="/results/:testId"
               element={
-                <ProtectedRoute role={['admin', 'teacher']}>
+                <ProtectedRoute requiredRole={['admin', 'teacher']}>
                   <Results />
                 </ProtectedRoute>
               }
@@ -85,7 +184,7 @@ const App = () => {
             <Route
               path="/results/student/:studentId"
               element={
-                <ProtectedRoute role={['admin', 'teacher']}>
+                <ProtectedRoute requiredRole={['admin', 'teacher']}>
                   <Results />
                 </ProtectedRoute>
               }
@@ -93,15 +192,15 @@ const App = () => {
             <Route
               path="/analytics"
               element={
-                <ProtectedRoute role={['teacher', 'admin']}>
-                  <AnalyticsPage />
+                <ProtectedRoute requiredRole={['teacher', 'admin']}>
+                  <Analytics />
                 </ProtectedRoute>
               }
             />
             <Route
               path="/test-creation"
               element={
-                <ProtectedRoute role="teacher">
+                <ProtectedRoute requiredRole="teacher">
                   <TestCreation />
                 </ProtectedRoute>
               }
@@ -109,7 +208,7 @@ const App = () => {
             <Route
               path="/test-creation/:testId"
               element={
-                <ProtectedRoute role="teacher">
+                <ProtectedRoute requiredRole="teacher">
                   <TestCreation />
                 </ProtectedRoute>
               }
@@ -117,7 +216,7 @@ const App = () => {
             <Route
               path="/test-creation/:testId/questions"
               element={
-                <ProtectedRoute role="teacher">
+                <ProtectedRoute requiredRole="teacher">
                   <TestQuestions />
                 </ProtectedRoute>
               }
@@ -125,12 +224,15 @@ const App = () => {
             <Route
               path="/test-preview/:testId"
               element={
-                <ProtectedRoute role="teacher">
+                <ProtectedRoute requiredRole="teacher">
                   <TestPreview />
                 </ProtectedRoute>
               }
             />
-            <Route path="/" element={<Login />} />
+            <Route
+              path="/unauthorized"
+              element={<div style={{ textAlign: 'center', color: '#4B5320', fontFamily: 'sans-serif', padding: '20px' }}>Unauthorized: Access Denied</div>}
+            />
             <Route path="*" element={<div style={{ textAlign: 'center', color: '#4B5320', fontFamily: 'sans-serif', padding: '20px' }}>404: Route not found</div>} />
           </Routes>
         </Router>

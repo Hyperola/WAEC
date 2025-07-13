@@ -6,6 +6,7 @@ const Test = require('../models/Test');
 const { auth } = require('../middleware/auth');
 const PDFDocument = require('pdfkit');
 const { Parser } = require('json2csv');
+const mongoose = require('mongoose');
 
 router.get('/', auth, async (req, res) => {
   try {
@@ -21,7 +22,7 @@ router.get('/', auth, async (req, res) => {
       console.log('Results route - Access denied:', { user: req.user.username });
       return res.status(403).json({ error: 'Access restricted' });
     }
-    const results = await Result.find(query).populate('userId', 'name surname').populate('testId', 'title');
+    const results = await Result.find(query).populate('userId', 'name surname').populate('testId', 'title subject class');
     console.log('Results route - Success:', { count: results.length });
     res.json(results);
   } catch (error) {
@@ -33,10 +34,17 @@ router.get('/', auth, async (req, res) => {
 router.get('/:testId', auth, async (req, res) => {
   try {
     console.log('Results route - Fetching results for test:', { user: req.user.username, testId: req.params.testId });
+    if (!mongoose.isValidObjectId(req.params.testId)) {
+      console.log('Results route - Invalid testId:', { testId: req.params.testId });
+      return res.status(400).json({ error: 'Invalid test ID' });
+    }
+    const test = await Test.findById(req.params.testId);
+    if (!test) {
+      console.log('Results route - Test not found:', { testId: req.params.testId });
+      return res.status(404).json({ error: 'Test not found' });
+    }
     let query = { testId: req.params.testId };
     if (req.user.role === 'teacher') {
-      const test = await Test.findById(req.params.testId);
-      if (!test) return res.status(404).json({ error: 'Test not found' });
       if (!req.user.subjects.some((sub) => sub.subject === test.subject && sub.class === test.class)) {
         console.log('Results route - Access denied:', { user: req.user.username, subject: test.subject, className: test.class });
         return res.status(403).json({ error: 'Not assigned to this subject/class' });
@@ -45,9 +53,14 @@ router.get('/:testId', auth, async (req, res) => {
       console.log('Results route - Access denied:', { user: req.user.username });
       return res.status(403).json({ error: 'Access restricted' });
     }
-    const results = await Result.find(query).populate('userId', 'name surname').populate('testId', 'title');
+    const results = await Result.find(query).populate('userId', 'name surname').populate('testId', 'title subject class');
     console.log('Results route - Success:', { testId: req.params.testId, count: results.length });
-    res.json(results);
+    res.json(results.map(result => ({
+      ...result.toObject(),
+      subject: result.testId?.subject || result.subject || 'Unknown',
+      class: result.testId?.class || result.class || 'Unknown',
+      session: result.session || 'Unknown'
+    })));
   } catch (error) {
     console.error('Results route - Error:', error.message);
     res.status(500).json({ error: 'Server error' });
@@ -57,9 +70,13 @@ router.get('/:testId', auth, async (req, res) => {
 router.get('/details/:resultId', auth, async (req, res) => {
   try {
     console.log('Results route - Fetching result details:', { user: req.user.username, resultId: req.params.resultId });
-    if (req.user.role !== 'admin') {
+    if (!mongoose.isValidObjectId(req.params.resultId)) {
+      console.log('Results route - Invalid resultId:', { resultId: req.params.resultId });
+      return res.status(400).json({ error: 'Invalid result ID' });
+    }
+    if (!['admin', 'teacher'].includes(req.user.role)) {
       console.log('Results route - Access denied:', { user: req.user.username });
-      return res.status(403).json({ error: 'Admin access required' });
+      return res.status(403).json({ error: 'Access restricted to admins or teachers' });
     }
     const result = await Result.findById(req.params.resultId)
       .populate('userId', 'name surname')
@@ -73,12 +90,12 @@ router.get('/details/:resultId', auth, async (req, res) => {
       user: result.userId,
       test: result.testId,
       score: result.score,
-      answers: result.answers.map((answer, index) => ({
-        question: result.testId.questions[index]?.questionText || 'Unknown',
-        selectedOption: answer.selectedOption,
-        correctOption: result.testId.questions[index]?.correctOption,
-        isCorrect: answer.selectedOption === result.testId.questions[index]?.correctOption,
-      })),
+      answers: Array.isArray(result.answers) ? result.answers.map((answer, index) => ({
+        question: result.testId?.questions[index]?.questionText || 'Unknown',
+        selectedOption: answer.selectedOption || 'N/A',
+        correctOption: result.testId?.questions[index]?.correctOption || 'N/A',
+        isCorrect: answer.selectedOption === result.testId?.questions[index]?.correctOption,
+      })) : [],
     });
   } catch (error) {
     console.error('Results route - Error:', error.message);
@@ -88,17 +105,26 @@ router.get('/details/:resultId', auth, async (req, res) => {
 
 router.put('/:id', auth, async (req, res) => {
   try {
+    console.log('Results route - Updating result:', { user: req.user.username, resultId: req.params.id });
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      console.log('Results route - Invalid resultId:', { id: req.params.id });
+      return res.status(400).json({ error: 'Invalid result ID' });
+    }
     if (req.user.role !== 'admin') {
       console.log('Results route - Access denied for update:', { user: req.user.username });
       return res.status(403).json({ error: 'Admin access required' });
     }
     const { score } = req.body;
+    if (score === undefined || score < 0) {
+      console.log('Results route - Invalid score:', { score });
+      return res.status(400).json({ error: 'Invalid score value' });
+    }
     const result = await Result.findById(req.params.id);
     if (!result) {
       console.log('Results route - Result not found:', { id: req.params.id });
       return res.status(404).json({ error: 'Result not found' });
     }
-    result.score = score !== undefined ? score : result.score;
+    result.score = score;
     await result.save();
     console.log('Results route - Result updated:', { resultId: result._id });
     res.json({ message: 'Result updated', result });
@@ -112,6 +138,10 @@ router.get('/export/student/:studentId/session/:session', auth, async (req, res)
   try {
     console.log('Results route - Exporting student results:', { user: req.user.username, studentId: req.params.studentId, session: req.params.session });
     const { studentId, session } = req.params;
+    if (!mongoose.isValidObjectId(studentId)) {
+      console.log('Results route - Invalid studentId:', { studentId });
+      return res.status(400).json({ error: 'Invalid student ID' });
+    }
     const student = await User.findById(studentId);
     if (!student) {
       console.log('Results route - Student not found:', { studentId });
@@ -148,7 +178,7 @@ router.get('/export/student/:studentId/session/:session', auth, async (req, res)
       let y = 120;
       let totalScore = 0;
       results.forEach(r => {
-        doc.text(`${r.testId.title} | ${r.subject} | ${r.class} | ${r.score} | ${new Date(r.submittedAt).toLocaleDateString()}`, 50, y);
+        doc.text(`${r.testId.title} | ${r.subject || r.testId.subject} | ${r.class || r.testId.class} | ${r.score} | ${new Date(r.submittedAt).toLocaleDateString()}`, 50, y);
         totalScore += r.score;
         y += 20;
       });
@@ -159,8 +189,8 @@ router.get('/export/student/:studentId/session/:session', auth, async (req, res)
       const fields = ['testId.title', 'subject', 'class', 'score', 'submittedAt'];
       const csv = new Parser({ fields }).parse(results.map(r => ({
         'testId.title': r.testId.title,
-        subject: r.subject,
-        class: r.class,
+        subject: r.subject || r.testId.subject,
+        class: r.class || r.testId.class,
         score: r.score,
         submittedAt: new Date(r.submittedAt).toLocaleDateString(),
       })));
@@ -191,7 +221,7 @@ router.get('/export/class/:className/subject/:subject', auth, async (req, res) =
       console.log('Results route - Access denied:', { user: req.user.username });
       return res.status(403).json({ error: 'Access restricted' });
     }
-    const results = await Result.find(query).populate('userId', 'name surname').populate('testId', 'title');
+    const results = await Result.find(query).populate('userId', 'name surname').populate('testId', 'title subject class');
     if (!results.length) {
       console.log('Results route - No results found:', { className, subject });
       return res.status(404).json({ error: 'No results found' });
@@ -298,6 +328,10 @@ router.get('/export/student/:studentId/test/:testId', auth, async (req, res) => 
   try {
     console.log('Results route - Exporting single test result:', { user: req.user.username, studentId: req.params.studentId, testId: req.params.testId });
     const { studentId, testId } = req.params;
+    if (!mongoose.isValidObjectId(studentId) || !mongoose.isValidObjectId(testId)) {
+      console.log('Results route - Invalid IDs:', { studentId, testId });
+      return res.status(400).json({ error: 'Invalid student or test ID' });
+    }
     const student = await User.findById(studentId);
     if (!student) {
       console.log('Results route - Student not found:', { studentId });
@@ -330,9 +364,9 @@ router.get('/export/student/:studentId/test/:testId', auth, async (req, res) => 
     doc.pipe(res);
     doc.fontSize(16).text(`Test Result: ${student.name} ${student.surname}`, { align: 'center' });
     doc.fontSize(12).text(`Test: ${result.testId.title}`, { align: 'center' });
-    doc.text(`Subject: ${result.subject}`, { align: 'center' });
-    doc.text(`Class: ${result.class}`, { align: 'center' });
-    doc.text(`Session: ${result.session}`, { align: 'center' });
+    doc.text(`Subject: ${result.subject || result.testId.subject}`, { align: 'center' });
+    doc.text(`Class: ${result.class || result.testId.class}`, { align: 'center' });
+    doc.text(`Session: ${result.session || 'Unknown'}`, { align: 'center' });
     doc.text(`Score: ${result.score}`, { align: 'center' });
     doc.text(`Date: ${new Date(result.submittedAt).toLocaleDateString()}`, { align: 'center' });
     doc.end();

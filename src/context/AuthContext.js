@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { jwtDecode } from 'jwt-decode';
 
 export const AuthContext = createContext();
 
@@ -7,6 +8,29 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const refreshToken = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return false;
+      const decoded = jwtDecode(token);
+      const currentTime = Date.now() / 1000;
+      if (decoded.exp < currentTime + 300) { // Refresh if expiring in 5 minutes
+        console.log('AuthContext - Refreshing token');
+        const res = await axios.post('http://localhost:5000/api/auth/refresh', {}, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        localStorage.setItem('token', res.data.token);
+        await verifyToken(res.data.token);
+        return true;
+      }
+      return true;
+    } catch (err) {
+      console.error('AuthContext - Token refresh failed:', err.response?.data || err.message);
+      setError('Session expired. Please log in again.');
+      return false;
+    }
+  }, []);
 
   const verifyToken = useCallback(async (token) => {
     console.log('AuthContext - Verifying token:', token);
@@ -31,16 +55,26 @@ export const AuthProvider = ({ children }) => {
     const initializeAuth = async () => {
       const token = localStorage.getItem('token');
       console.log('AuthContext - Initializing, token:', token ? 'Present' : 'Absent');
-      
       if (token) {
+        const decoded = jwtDecode(token);
+        const currentTime = Date.now() / 1000;
+        if (decoded.exp < currentTime) {
+          console.log('AuthContext - Token expired, attempting refresh');
+          const refreshed = await refreshToken();
+          if (!refreshed) {
+            setUser(null);
+            localStorage.removeItem('token');
+            setLoading(false);
+            return;
+          }
+        }
         await verifyToken(token);
       } else {
         setLoading(false);
       }
     };
-
     initializeAuth();
-  }, [verifyToken]);
+  }, [verifyToken, refreshToken]);
 
   const login = async (username, password) => {
     console.log('AuthContext - Login attempt for:', username);
@@ -51,10 +85,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', res.data.token);
       setUser(res.data.user);
       setError(null);
-      await verifyToken(res.data.token); // Re-verify token after login
+      await verifyToken(res.data.token);
       return res.data;
     } catch (err) {
-      console.error('AuthContext - Login failed:', err.response?.data);
+      console.error('AuthContext - Login failed:', err.response?.data || err.message);
       setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
       throw err;
     } finally {
@@ -76,7 +110,8 @@ export const AuthProvider = ({ children }) => {
       logout, 
       loading,
       error,
-      setError
+      setError,
+      refreshToken
     }}>
       {children}
     </AuthContext.Provider>

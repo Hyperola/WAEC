@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
+import { FiSave, FiX, FiAlertTriangle, FiCheckCircle, FiImage } from 'react-icons/fi';
 
 const TestQuestions = () => {
   const { user } = useContext(AuthContext);
   const { testId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [test, setTest] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [selectedQuestions, setSelectedQuestions] = useState([]);
@@ -65,10 +67,12 @@ const TestQuestions = () => {
     setLoading(false);
   };
 
-  const handleQuestionToggle = (questionId) => {
-    setSelectedQuestions((prev) =>
-      prev.includes(questionId) ? prev.filter((id) => id !== questionId) : [...prev, questionId]
-    );
+  const handleQuestionToggle = async (questionId) => {
+    const updatedQuestions = selectedQuestions.includes(questionId)
+      ? selectedQuestions.filter((id) => id !== questionId)
+      : [...selectedQuestions, questionId];
+    setSelectedQuestions(updatedQuestions);
+    await saveQuestions(updatedQuestions);
   };
 
   const handleNewQuestionSubmit = async (e) => {
@@ -88,9 +92,11 @@ const TestQuestions = () => {
       formData.append('text', newQuestion.text);
       formData.append('options', JSON.stringify(newQuestion.options));
       formData.append('correctAnswer', newQuestion.correctAnswer);
+      formData.append('testId', testId);
       if (newQuestion.image) {
         formData.append('image', newQuestion.image);
       }
+      console.log('Submitting question:', { testId, subject: newQuestion.subject, class: newQuestion.class });
       const res = await axios.post('http://localhost:5000/api/questions', formData, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
       });
@@ -98,7 +104,9 @@ const TestQuestions = () => {
       if (newQuestion.saveToBank) {
         setQuestions([...questions, res.data]);
       }
-      setSelectedQuestions([...selectedQuestions, res.data._id]);
+      const updatedQuestions = [...selectedQuestions, res.data._id];
+      setSelectedQuestions(updatedQuestions);
+      await saveQuestions(updatedQuestions);
       setNewQuestion({ subject: test.subject, class: test.class, text: '', options: ['', '', '', ''], correctAnswer: '', image: null, saveToBank: false });
       setImagePreview(null);
     } catch (err) {
@@ -108,13 +116,11 @@ const TestQuestions = () => {
     setLoading(false);
   };
 
-  const handleSaveQuestions = async () => {
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
+  const saveQuestions = async (questions) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/tests/${testId}`, { questions: selectedQuestions }, {
+      console.log('Saving questions to test:', { testId, questions });
+      await axios.put(`http://localhost:5000/api/tests/${testId}`, { questions }, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSuccess('Questions saved to test successfully.');
@@ -122,11 +128,10 @@ const TestQuestions = () => {
       console.error('Save questions error:', err.response?.data || err.message);
       setError(err.response?.data?.error || 'Failed to save questions. Please try again.');
     }
-    setLoading(false);
   };
 
   const handleDone = () => {
-    navigate('/teacher-home');
+    navigate('/teacher/dashboard');
   };
 
   const handleImageChange = (e) => {
@@ -141,111 +146,376 @@ const TestQuestions = () => {
     }
   };
 
-  if (!user || user.role !== 'teacher') return <p style={{ padding: '20px', color: 'red' }}>Access restricted to teachers.</p>;
-  if (loading) return <p style={{ padding: '20px' }}>Loading...</p>;
-  if (!test) return <p style={{ padding: '20px', color: 'red' }}>{error || 'Test not found.'}</p>;
+  if (!user || user.role !== 'teacher') {
+    return (
+      <div style={styles.accessDenied}>
+        <h2>Access Restricted</h2>
+        <p>This page is only available to authorized teachers.</p>
+      </div>
+    );
+  }
+  if (loading) {
+    return <div style={styles.loading}>Loading...</div>;
+  }
+  if (!test) {
+    return (
+      <div style={styles.error}>
+        <FiAlertTriangle style={styles.alertIcon} />
+        <p>{error || 'Test not found.'}</p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <h2 style={{ fontSize: '24px', marginBottom: '20px' }}>Add Questions to Test: {test.title}</h2>
-      {error && <p style={{ color: 'red', marginBottom: '10px' }}>{error}</p>}
-      {success && <p style={{ color: 'green', marginBottom: '10px' }}>{success}</p>}
-      <h3 style={{ fontSize: '20px', marginBottom: '10px' }}>Select Existing Questions</h3>
-      <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ccc', marginBottom: '20px' }}>
-        <thead>
-          <tr>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>Select</th>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>Question Text</th>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>Options</th>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>Correct Answer</th>
-          </tr>
-        </thead>
-        <tbody>
-          {questions
-            .filter(q => q.subject === test.subject && q.class === test.class)
-            .map(q => (
-              <tr key={q._id}>
-                <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedQuestions.includes(q._id)}
-                    onChange={() => handleQuestionToggle(q._id)}
-                  />
-                </td>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>{q.text}</td>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>{q.options.join(', ')}</td>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>{q.correctAnswer}</td>
-              </tr>
-            ))}
-        </tbody>
-      </table>
-      {questions.filter(q => q.subject === test.subject && q.class === test.class).length === 0 && (
-        <p style={{ color: '#999', marginBottom: '20px' }}>No questions available for {test.subject} ({test.class}). Create new questions below.</p>
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <h2 style={styles.headerTitle}>Add Questions to Test: {test.title}</h2>
+        <p style={styles.headerSubtitle}>Select or create questions for {test.subject} ({test.class})</p>
+      </div>
+
+      {error && (
+        <div style={styles.alertError}>
+          <FiAlertTriangle style={styles.alertIcon} />
+          <span>{error}</span>
+        </div>
       )}
-      <h3 style={{ fontSize: '20px', marginBottom: '10px' }}>Create New Question</h3>
-      <form onSubmit={handleNewQuestionSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '400px' }}>
-        <input
-          type="text"
-          placeholder="Question Text"
-          value={newQuestion.text}
-          onChange={(e) => setNewQuestion({ ...newQuestion, text: e.target.value })}
-          required
-          style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-        />
-        {newQuestion.options.map((opt, index) => (
-          <input
-            key={index}
-            type="text"
-            placeholder={`Option ${index + 1}`}
-            value={opt}
-            onChange={(e) => {
-              const newOptions = [...newQuestion.options];
-              newOptions[index] = e.target.value;
-              setNewQuestion({ ...newQuestion, options: newOptions });
-            }}
-            required
-            style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-          />
-        ))}
-        <input
-          type="text"
-          placeholder="Correct Answer (e.g., Option 1 text)"
-          value={newQuestion.correctAnswer}
-          onChange={(e) => setNewQuestion({ ...newQuestion, correctAnswer: e.target.value })}
-          required
-          style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-        />
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleImageChange}
-          style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-        />
-        {imagePreview && (
-          <img src={imagePreview} alt="Preview" style={{ maxWidth: '200px', marginTop: '10px' }} />
+      {success && (
+        <div style={styles.alertSuccess}>
+          <FiCheckCircle style={styles.alertIcon} />
+          <span>{success}</span>
+        </div>
+      )}
+
+      <div style={styles.section}>
+        <h3 style={styles.sectionTitle}>Select Existing Questions</h3>
+        {questions.filter(q => q.subject === test.subject && q.class === test.class).length === 0 ? (
+          <p style={styles.noQuestions}>No questions available for {test.subject} ({test.class}). Create new questions below.</p>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.tableHeader}>Select</th>
+                <th style={styles.tableHeader}>Question Text</th>
+                <th style={styles.tableHeader}>Options</th>
+                <th style={styles.tableHeader}>Correct Answer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {questions
+                .filter(q => q.subject === test.subject && q.class === test.class)
+                .map(q => (
+                  <tr key={q._id} style={styles.tableRow}>
+                    <td style={styles.tableCell}>
+                      <input
+                        type="checkbox"
+                        checked={selectedQuestions.includes(q._id)}
+                        onChange={() => handleQuestionToggle(q._id)}
+                        style={styles.checkbox}
+                      />
+                    </td>
+                    <td style={styles.tableCell}>{q.text}</td>
+                    <td style={styles.tableCell}>{q.options.join(', ')}</td>
+                    <td style={styles.tableCell}>{q.correctAnswer}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
         )}
-        <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <input
-            type="checkbox"
-            checked={newQuestion.saveToBank}
-            onChange={(e) => setNewQuestion({ ...newQuestion, saveToBank: e.target.checked })}
-          />
-          Save to Question Bank
-        </label>
-        <button type="submit" disabled={loading} style={{ padding: '8px', background: loading ? '#ccc' : '#4bc0c0', color: 'white', border: 'none', borderRadius: '4px' }}>
-          Add Question to Test
-        </button>
-      </form>
-      <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-        <button onClick={handleSaveQuestions} disabled={loading || selectedQuestions.length === 0} style={{ padding: '8px', background: loading || selectedQuestions.length === 0 ? '#ccc' : '#4bc0c0', color: 'white', border: 'none', borderRadius: '4px' }}>
-          Save Questions
-        </button>
-        <button onClick={handleDone} style={{ padding: '8px', background: '#ccc', color: 'black', border: 'none', borderRadius: '4px' }}>
+      </div>
+
+      <div style={styles.section}>
+        <h3 style={styles.sectionTitle}>Create New Question</h3>
+        <form onSubmit={handleNewQuestionSubmit} style={styles.form}>
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Question Text*</label>
+            <input
+              type="text"
+              placeholder="Enter question text"
+              value={newQuestion.text}
+              onChange={(e) => setNewQuestion({ ...newQuestion, text: e.target.value })}
+              required
+              style={styles.input}
+            />
+          </div>
+          {newQuestion.options.map((opt, index) => (
+            <div key={index} style={styles.formGroup}>
+              <label style={styles.label}>Option {index + 1}*</label>
+              <input
+                type="text"
+                placeholder={`Option ${index + 1}`}
+                value={opt}
+                onChange={(e) => {
+                  const newOptions = [...newQuestion.options];
+                  newOptions[index] = e.target.value;
+                  setNewQuestion({ ...newQuestion, options: newOptions });
+                }}
+                required
+                style={styles.input}
+              />
+            </div>
+          ))}
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Correct Answer*</label>
+            <input
+              type="text"
+              placeholder="Enter correct answer (must match an option)"
+              value={newQuestion.correctAnswer}
+              onChange={(e) => setNewQuestion({ ...newQuestion, correctAnswer: e.target.value })}
+              required
+              style={styles.input}
+            />
+          </div>
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Image (Optional)</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              style={styles.fileInput}
+            />
+            {imagePreview && (
+              <img src={imagePreview} alt="Preview" style={styles.imagePreview} />
+            )}
+          </div>
+          <div style={styles.checkboxGroup}>
+            <input
+              type="checkbox"
+              id="saveToBank"
+              checked={newQuestion.saveToBank}
+              onChange={(e) => setNewQuestion({ ...newQuestion, saveToBank: e.target.checked })}
+              style={styles.checkbox}
+            />
+            <label htmlFor="saveToBank" style={styles.checkboxLabel}>Save to Question Bank</label>
+          </div>
+          <div style={styles.formActions}>
+            <button
+              type="submit"
+              disabled={loading}
+              style={loading ? { ...styles.submitButton, backgroundColor: '#ccc' } : styles.submitButton}
+            >
+              <FiSave style={styles.buttonIcon} />
+              Add Question to Test
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div style={styles.formActions}>
+        <button
+          onClick={handleDone}
+          style={styles.cancelButton}
+        >
+          <FiX style={styles.buttonIcon} />
           Done
         </button>
       </div>
     </div>
   );
+};
+
+const styles = {
+  container: {
+    fontFamily: 'sans-serif',
+    padding: '20px',
+    backgroundColor: '#f8f9fa',
+    minHeight: '100vh',
+    maxWidth: '1000px',
+    margin: '0 auto',
+  },
+  header: {
+    backgroundColor: '#4B5320',
+    color: '#FFFFFF',
+    padding: '25px',
+    borderRadius: '8px',
+    marginBottom: '25px',
+    border: '1px solid #000000',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.2)',
+  },
+  headerTitle: {
+    fontSize: '24px',
+    fontWeight: 'bold',
+    margin: '0 0 10px 0',
+  },
+  headerSubtitle: {
+    fontSize: '16px',
+    margin: '0',
+    color: '#D4A017',
+  },
+  alertError: {
+    backgroundColor: '#FFF3F3',
+    color: '#B22222',
+    borderLeft: '4px solid #B22222',
+    padding: '15px',
+    marginBottom: '25px',
+    borderRadius: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  alertSuccess: {
+    backgroundColor: '#d4edda',
+    color: '#155724',
+    borderLeft: '4px solid #28a745',
+    padding: '15px',
+    marginBottom: '25px',
+    borderRadius: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  alertIcon: {
+    fontSize: '20px',
+  },
+  section: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: '8px',
+    padding: '25px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    border: '1px solid #E0E0E0',
+    marginBottom: '25px',
+  },
+  sectionTitle: {
+    color: '#4B5320',
+    fontSize: '18px',
+    fontWeight: '600',
+    margin: '0 0 15px 0',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    border: '1px solid #E0E0E0',
+  },
+  tableHeader: {
+    border: '1px solid #E0E0E0',
+    padding: '12px',
+    backgroundColor: '#f8f9fa',
+    color: '#4B5320',
+    fontWeight: '600',
+  },
+  tableRow: {
+    borderBottom: '1px solid #E0E0E0',
+  },
+  tableCell: {
+    border: '1px solid #E0E0E0',
+    padding: '12px',
+    textAlign: 'left',
+  },
+  checkbox: {
+    width: '18px',
+    height: '18px',
+    accentColor: '#4B5320',
+  },
+  noQuestions: {
+    color: '#4B5320',
+    fontSize: '14px',
+    margin: '0 0 20px 0',
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+    maxWidth: '400px',
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  label: {
+    color: '#4B5320',
+    fontWeight: '600',
+    fontSize: '14px',
+  },
+  input: {
+    padding: '12px',
+    border: '1px solid #E0E0E0',
+    borderRadius: '6px',
+    fontSize: '14px',
+  },
+  fileInput: {
+    padding: '12px',
+    border: '1px solid #E0E0E0',
+    borderRadius: '6px',
+  },
+  imagePreview: {
+    maxWidth: '200px',
+    marginTop: '10px',
+    borderRadius: '6px',
+  },
+  checkboxGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  checkboxLabel: {
+    color: '#4B5320',
+    fontSize: '14px',
+  },
+  formActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '15px',
+    marginTop: '20px',
+  },
+  submitButton: {
+    backgroundColor: '#4B5320',
+    color: '#FFFFFF',
+    border: 'none',
+    padding: '12px 24px',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  cancelButton: {
+    backgroundColor: 'transparent',
+    color: '#4B5320',
+    border: '1px solid #4B5320',
+    padding: '12px 24px',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  buttonIcon: {
+    fontSize: '18px',
+  },
+  accessDenied: {
+    textAlign: 'center',
+    padding: '4rem',
+    backgroundColor: '#FFFFFF',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    maxWidth: '600px',
+    margin: '2rem auto',
+  },
+  loading: {
+    textAlign: 'center',
+    padding: '4rem',
+    backgroundColor: '#FFFFFF',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    maxWidth: '600px',
+    margin: '2rem auto',
+  },
+  error: {
+    textAlign: 'center',
+    padding: '4rem',
+    backgroundColor: '#FFF3F3',
+    color: '#B22222',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    maxWidth: '600px',
+    margin: '2rem auto',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    justifyContent: 'center',
+  },
 };
 
 export default TestQuestions;

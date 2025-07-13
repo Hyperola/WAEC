@@ -31,21 +31,20 @@ const AnalyticsPage = () => {
       }
     };
 
-    if (user && user.role === 'teacher') {
+    if (user && (user.role === 'teacher' || user.role === 'admin')) {
       fetchAnalytics();
     } else {
-      setError('Access restricted to teachers.');
+      setError('Access restricted to teachers and admins.');
       setLoading(false);
     }
   }, [user]);
 
   if (loading) return <p style={{ padding: '20px', color: '#D4A017', backgroundColor: '#4B5320', textAlign: 'center', fontFamily: 'sans-serif' }}>Loading...</p>;
-  if (!user || user.role !== 'teacher') return <p style={{ padding: '20px', color: '#D4A017', backgroundColor: '#4B5320', textAlign: 'center', fontFamily: 'sans-serif' }}>Access restricted to teachers.</p>;
+  if (!user || (user.role !== 'teacher' && user.role !== 'admin')) return <p style={{ padding: '20px', color: '#D4A017', backgroundColor: '#4B5320', textAlign: 'center', fontFamily: 'sans-serif' }}>Access restricted to teachers and admins.</p>;
   if (error) return <p style={{ backgroundColor: '#FFE6E6', color: '#B22222', borderLeft: '4px solid #B22222', padding: '10px', margin: '20px', fontFamily: 'sans-serif' }}>Error: {error}</p>;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F5F5F5', padding: '20px' }}>
-      {/* Header */}
       <header style={{ backgroundColor: '#4B5320', color: '#D4A017', padding: '15px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -60,7 +59,7 @@ const AnalyticsPage = () => {
             </div>
           </div>
           <button 
-            onClick={() => navigate('/teacher')} 
+            onClick={() => navigate(user.role === 'admin' ? '/admin' : '/teacher')} 
             style={{ padding: '8px 16px', backgroundColor: '#D4A017', color: '#4B5320', border: 'none', borderRadius: '4px', fontFamily: 'sans-serif', fontSize: '14px', cursor: 'pointer' }}
           >
             Back to Dashboard
@@ -68,7 +67,6 @@ const AnalyticsPage = () => {
         </div>
       </header>
 
-      {/* Main content */}
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
         <h2 style={{ fontSize: '24px', color: '#4B5320', fontFamily: 'sans-serif', marginBottom: '20px' }}>Test Analytics</h2>
         {analytics.length === 0 ? (
