@@ -6,13 +6,13 @@ import AddQuestion from '../components/teacher/AddQuestion';
 import BulkImport from '../components/teacher/BulkImport';
 import ManageQuestions from '../components/teacher/ManageQuestions';
 import ManageTests from '../components/teacher/ManageTests';
-import Results from '../components/teacher/Results';
+import TestResults from '../pages/TestResults';
 import Analytics from '../components/teacher/Analytics';
 import TestCreation from '../pages/TestCreation';
 import TestQuestions from '../pages/TestQuestions';
 import TestPreview from '../pages/TestPreview';
 import AddTestQuestions from '../components/teacher/AddTestQuestions';
-import { FiHome, FiPlusSquare, FiUpload, FiEdit, FiBook, FiBarChart2, FiAward, FiLogOut, FiUser } from 'react-icons/fi';
+import { FiHome, FiPlusSquare, FiUpload, FiEdit, FiBook, FiBarChart2, FiLogOut, FiUser } from 'react-icons/fi';
 
 const TeacherHome = () => {
   const { user, setUser } = useContext(AuthContext);
@@ -44,7 +44,6 @@ const TeacherHome = () => {
     { path: 'bulk-import', icon: <FiUpload />, label: 'Bulk Import' },
     { path: 'questions', icon: <FiEdit />, label: 'Manage Questions' },
     { path: 'tests', icon: <FiBook />, label: 'Manage Tests' },
-    { path: 'results', icon: <FiAward />, label: 'Student Results' },
     { path: 'analytics', icon: <FiBarChart2 />, label: 'Analytics' },
   ];
 
@@ -132,7 +131,7 @@ const TeacherHome = () => {
             <Route path="bulk-import" element={<BulkImport />} />
             <Route path="questions" element={<ManageQuestions />} />
             <Route path="tests" element={<ManageTests />} />
-            <Route path="results" element={<Results />} />
+            <Route path="test-results/:testId" element={<TestResults />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="/" element={<Dashboard />} />
             <Route path="*" element={<Navigate to="/teacher/dashboard" replace />} />

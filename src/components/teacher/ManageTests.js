@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import useTeacherData from '../../hooks/useTeacherData';
 import axios from 'axios';
-import { FiEdit2, FiPlusCircle, FiTrash2, FiBook, FiAlertTriangle, FiCheckCircle } from 'react-icons/fi';
+import { FiEdit2, FiPlusCircle, FiTrash2, FiBook, FiAlertTriangle, FiCheckCircle, FiAward } from 'react-icons/fi';
 
 const ManageTests = () => {
   const { tests, fetchTests, error, success, setError, setSuccess, navigate } = useTeacherData();
@@ -150,6 +150,13 @@ const ManageTests = () => {
                             <FiPlusCircle style={styles.buttonIcon} />
                             Questions
                           </button>
+                          <Link
+                            to={`/teacher/test-results/${test._id}`}
+                            style={styles.resultsButton}
+                          >
+                            <FiAward style={styles.buttonIcon} />
+                            View Results
+                          </Link>
                           <button
                             onClick={() => handleDeleteTest(test._id)}
                             disabled={loading && deletingId === test._id}
@@ -351,6 +358,20 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
+  },
+  resultsButton: {
+    backgroundColor: '#28a745',
+    color: '#FFFFFF',
+    border: 'none',
+    padding: '8px 12px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontWeight: '600',
+    fontSize: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    textDecoration: 'none',
   },
   deleteButton: {
     backgroundColor: '#B22222',

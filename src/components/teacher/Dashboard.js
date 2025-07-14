@@ -16,6 +16,16 @@ const Dashboard = () => {
     navigate(`/teacher/test-creation/${testId}`);
   };
 
+  const handleViewResults = (testId) => {
+    console.log('Dashboard - Navigating to results for testId:', testId);
+    if (!testId || !/^[0-9a-fA-F]{24}$/.test(testId)) {
+      console.error('View results error: Invalid testId:', testId);
+      setError('Invalid test ID. Please select a valid test.');
+      return;
+    }
+    navigate(`/teacher/test-results/${testId}`);
+  };
+
   const activeTestsCount = tests.filter(t => new Date(t.availability.end) > new Date()).length;
   const upcomingTestsCount = tests.filter(t => new Date(t.availability.start) > new Date()).length;
 
@@ -37,12 +47,6 @@ const Dashboard = () => {
       icon: <FiBook size={20} />,
       action: () => navigate('/teacher/tests'),
       bgColor: '#4B5320',
-    },
-    {
-      label: 'View Results',
-      icon: <FiUsers size={20} />,
-      action: () => navigate('/teacher/results'),
-      bgColor: '#D4A017',
     },
   ];
 
@@ -169,9 +173,14 @@ const Dashboard = () => {
                       </p>
                     )}
                   </div>
-                  <button onClick={() => handleEditTest(test._id)} style={styles.viewButton}>
-                    <FiEdit2 size={16} /> Manage
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => handleEditTest(test._id)} style={styles.viewButton}>
+                      <FiEdit2 size={16} /> Manage
+                    </button>
+                    <button onClick={() => handleViewResults(test._id)} style={styles.viewButton}>
+                      <FiUsers size={16} /> Results
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

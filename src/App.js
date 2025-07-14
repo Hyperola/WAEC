@@ -6,14 +6,14 @@ import StudentHome from './pages/StudentHome';
 import AdminHome from './pages/AdminHome';
 import Register from './pages/Register';
 import TestTaking from './pages/TestTaking';
-import Results from './components/teacher/Results';
+import TestResults from './pages/TestResults';
+import AdminResults from './pages/AdminResults';
 import Analytics from './components/teacher/Analytics';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import AdminLayout from './components/AdminLayout';
 import ManageClasses from './pages/ManageClasses';
 import ManageUsers from './pages/ManageUsers';
-import EditResults from './pages/EditResults';
 import ExamSchedules from './pages/ExamSchedules';
 import DataExports from './pages/DataExports';
 
@@ -74,6 +74,14 @@ const App = () => {
               }
             />
             <Route
+              path="/teacher/test-results/:testId"
+              element={
+                <ProtectedRoute requiredRoles={['teacher', 'admin']}>
+                  <TestResults />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/admin"
               element={
                 <ProtectedRoute requiredRole="admin">
@@ -114,11 +122,11 @@ const App = () => {
               }
             />
             <Route
-              path="/admin/results"
+              path="/admin/results/:testId"
               element={
                 <ProtectedRoute requiredRole="admin">
                   <AdminLayout>
-                    <EditResults />
+                    <AdminResults />
                   </AdminLayout>
                 </ProtectedRoute>
               }
@@ -162,25 +170,9 @@ const App = () => {
               }
             />
             <Route
-              path="/results/:testId"
-              element={
-                <ProtectedRoute requiredRole={['admin', 'teacher']}>
-                  <Results />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/results/student/:studentId"
-              element={
-                <ProtectedRoute requiredRole={['admin', 'teacher']}>
-                  <Results />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/analytics"
               element={
-                <ProtectedRoute requiredRole={['teacher', 'admin']}>
+                <ProtectedRoute requiredRoles={['teacher', 'admin']}>
                   <Analytics />
                 </ProtectedRoute>
               }

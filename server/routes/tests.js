@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const Test = require('../models/Test');
 const Question = require('../models/Question');
 const Result = require('../models/Result');
-const { auth, teacherOnly } = require('../middleware/auth');
+const { auth, teacherOnly, adminOnly } = require('../middleware/auth');
 
 router.post('/', auth, teacherOnly, async (req, res) => {
   try {
@@ -101,7 +101,7 @@ router.post('/', auth, teacherOnly, async (req, res) => {
     if (error.code === 11000) {
       return res.status(400).json({ error: 'Duplicate test entry detected.' });
     }
-    res.status(400).json({ error: error.message || 'Failed to create test. Please check your input and try again.' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -134,22 +134,19 @@ router.get('/', auth, async (req, res) => {
     res.json(tests);
   } catch (error) {
     console.error('Tests route - Error:', error.message);
-    res.status(400).json({ error: error.message || 'Failed to fetch tests. Please try again.' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-router.get('/admin', auth, async (req, res) => {
+router.get('/admin', auth, adminOnly, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      console.log('Tests route - Admin access denied:', { user: req.user.username });
-      return res.status(403).json({ error: 'Admin access required.' });
-    }
+    console.log('Tests route - Admin fetch success:', { user: req.user.username });
     const tests = await Test.find().populate('createdBy', 'username');
     console.log('Tests route - Admin fetch success:', { count: tests.length });
     res.json(tests);
   } catch (error) {
     console.error('Tests route - Error:', error.message);
-    res.status(400).json({ error: error.message || 'Failed to fetch tests. Please try again.' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -208,7 +205,53 @@ router.get('/:testId', auth, async (req, res) => {
       user: req.user.username,
       stack: error.stack
     });
-    res.status(400).json({ error: error.message || 'Failed to fetch test. Please try again.' });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/:testId/results', auth, async (req, res) => {
+  try {
+    console.log('Tests route - Fetching results:', { testId: req.params.testId, user: req.user.username });
+    if (!mongoose.isValidObjectId(req.params.testId)) {
+      console.log('Tests route - Invalid test ID:', { testId: req.params.testId });
+      return res.status(400).json({ error: 'Invalid test ID format.' });
+    }
+    const test = await Test.findById(req.params.testId);
+    if (!test) {
+      console.log('Tests route - Test not found:', { testId: req.params.testId });
+      return res.status(404).json({ error: 'Test not found.' });
+    }
+    if (
+      req.user.role === 'teacher' &&
+      !req.user.subjects.some(sub => sub.subject === test.subject && sub.class === test.class)
+    ) {
+      console.log('Tests route - Not assigned:', {
+        user: req.user.username,
+        subject: test.subject,
+        class: test.class,
+        userSubjects: req.user.subjects
+      });
+      return res.status(403).json({ error: 'You are not assigned to this subject/class.' });
+    } else if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+      console.log('Tests route - Access denied:', { user: req.user.username });
+      return res.status(403).json({ error: 'Access restricted to teachers or admins.' });
+    }
+    const results = await Result.find({ testId: req.params.testId })
+      .populate('userId', 'username name')
+      .populate({
+        path: 'testId',
+        populate: { path: 'questions', select: '_id text correctAnswer' }
+      });
+    console.log('Tests route - Results fetched:', { count: results.length, testId: req.params.testId });
+    res.json(results);
+  } catch (error) {
+    console.error('Tests route - Results error:', {
+      error: error.message,
+      testId: req.params.testId,
+      user: req.user.username,
+      stack: error.stack
+    });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -283,7 +326,7 @@ router.put('/:id', auth, teacherOnly, async (req, res) => {
       request: req.body,
       stack: error.stack
     });
-    res.status(400).json({ error: error.message || 'Failed to update test. Please try again.' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -294,14 +337,14 @@ router.delete('/:testId', auth, async (req, res) => {
       console.log('Tests route - Invalid test ID:', { testId: req.params.testId });
       return res.status(400).json({ error: 'Invalid test ID format.' });
     }
-    if (req.user.role !== 'admin') {
-      console.log('Tests route - Access denied:', { user: req.user.username });
-      return res.status(403).json({ error: 'Admin access required.' });
-    }
     const test = await Test.findById(req.params.testId);
     if (!test) {
       console.log('Tests route - Test not found:', { testId: req.params.testId });
       return res.status(404).json({ error: 'Test not found.' });
+    }
+    if (req.user.role !== 'admin' && test.createdBy.toString() !== req.user.userId) {
+      console.log('Tests route - Access denied:', { user: req.user.username });
+      return res.status(403).json({ error: 'Access restricted to test creator or admins.' });
     }
     await Test.deleteOne({ _id: req.params.testId });
     await Result.deleteMany({ testId: req.params.testId });
@@ -310,6 +353,7 @@ router.delete('/:testId', auth, async (req, res) => {
   } catch (error) {
     console.error('Tests route - Error:', {
       error: error.message,
+      stack: error.stack
     });
     res.status(500).json({ error: 'Server error' });
   }
@@ -364,13 +408,54 @@ router.post('/:id/submit', auth, async (req, res) => {
     });
     await result.save();
     console.log('Tests route - Submission success:', { testId: req.params.id, score });
-    res.json({ message: 'Test submitted', score, totalQuestions, answers: results });
+    res.json({ message: 'Test submitted' });
   } catch (error) {
     console.error('Tests route - Submission error:', {
       error: error.message,
       request: req.body,
+      stack: error.stack
     });
-    res.status(400).json({ error: error.message || 'Failed to submit test.' });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.put('/results/:resultId', auth, adminOnly, async (req, res) => {
+  try {
+    const { score, answers } = req.body;
+    console.log('Tests route - Updating result:', { resultId: req.params.resultId, user: req.user.username });
+    if (!mongoose.isValidObjectId(req.params.resultId)) {
+      console.log('Tests route - Invalid result ID:', { resultId: req.params.resultId });
+      return res.status(400).json({ error: 'Invalid result ID format.' });
+    }
+    const result = await Result.findById(req.params.resultId);
+    if (!result) {
+      console.log('Tests route - Result not found:', { resultId: req.params.resultId });
+      return res.status(404).json({ error: 'Result not found.' });
+    }
+    if (score !== undefined) {
+      if (isNaN(score) || score < 0 || score > result.totalQuestions) {
+        console.log('Tests route - Invalid score:', { score, totalQuestions: result.totalQuestions });
+        return res.status(400).json({ error: 'Score must be a number between 0 and total questions.' });
+      }
+      result.score = score;
+    }
+    if (answers !== undefined) {
+      if (typeof answers !== 'object' || Object.keys(answers).length === 0) {
+        console.log('Tests route - Invalid answers:', { answers });
+        return res.status(400).json({ error: 'Answers must be a non-empty object.' });
+      }
+      result.answers = Object.fromEntries(Object.entries(answers));
+    }
+    await result.save();
+    console.log('Tests route - Result updated:', { resultId: result._id });
+    res.json(result);
+  } catch (error) {
+    console.error('Tests route - Result update error:', {
+      error: error.message,
+      resultId: req.params.resultId,
+      stack: error.stack
+    });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
